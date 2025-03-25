@@ -427,7 +427,19 @@ async function callDeepSeekAPI(message, ai) {
   }
 }
 
-// 添加消息到聊天窗口
+// 配置marked选项
+marked.setOptions({
+  highlight: function(code, language) {
+    if (language && hljs.getLanguage(language)) {
+      return hljs.highlight(code, { language: language }).value;
+    }
+    return hljs.highlightAuto(code).value;
+  },
+  breaks: true,
+  gfm: true
+});
+
+// 修改添加消息到聊天窗口函数
 function addMessage(type, sender, message, aiId = null) {
   const messageElement = document.createElement('div');
   messageElement.className = `chat-message ${type}-message mb-4`;
@@ -445,6 +457,9 @@ function addMessage(type, sender, message, aiId = null) {
     nameDisplay = `<span class="font-medium text-xs" style="color:${ai.color}">${ai.name}</span>`;
   }
   
+  // 处理消息内容，如果是AI回复则使用Markdown渲染
+  const messageContent = type === 'ai' ? marked.parse(message) : message.replace(/\n/g, '<br>');
+  
   messageElement.innerHTML = `
     <div class="flex items-start">
       <div class="h-8 w-8 rounded-full ${avatarStyle} flex items-center justify-center mr-2">
@@ -455,11 +470,18 @@ function addMessage(type, sender, message, aiId = null) {
           ${nameDisplay}
           <span class="text-xs text-gray-400 ml-2">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
         </div>
-        <p>${message.replace(/\n/g, '<br>')}</p>
+        <div class="markdown-body">${messageContent}</div>
       </div>
     </div>
   `;
   
   chatContainer.appendChild(messageElement);
   chatContainer.scrollTop = chatContainer.scrollHeight;
+  
+  // 如果是AI回复，初始化代码高亮
+  if (type === 'ai') {
+    messageElement.querySelectorAll('pre code').forEach((block) => {
+      hljs.highlightBlock(block);
+    });
+  }
 } 
