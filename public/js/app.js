@@ -78,6 +78,48 @@ const defaultAvatars = {
   </svg>`
 };
 
+// 添加@选择器相关变量
+let mentionedAIs = new Set(); // 存储被@的AI
+let showingMentionList = false; // 是否显示@列表
+
+// 添加@选择器的HTML
+function createMentionList() {
+  const mentionList = document.createElement('div');
+  mentionList.id = 'mention-list';
+  mentionList.className = 'absolute bottom-full mb-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden hidden';
+  
+  // 添加@所有人选项
+  mentionList.innerHTML = `
+    <div class="mention-item p-2 hover:bg-gray-50 cursor-pointer" data-id="all">
+      <div class="flex items-center">
+        <div class="h-6 w-6 rounded-full bg-primary flex items-center justify-center text-white mr-2">
+          <i class="fas fa-users text-sm"></i>
+        </div>
+        <span class="text-sm">所有人</span>
+      </div>
+    </div>
+    <div class="border-t border-gray-200"></div>
+  `;
+  
+  // 添加各AI选项
+  aiTeamMembers.forEach(ai => {
+    const aiItem = document.createElement('div');
+    aiItem.className = 'mention-item p-2 hover:bg-gray-50 cursor-pointer';
+    aiItem.setAttribute('data-id', ai.id);
+    aiItem.innerHTML = `
+      <div class="flex items-center">
+        <div class="h-6 w-6 rounded-full overflow-hidden mr-2">
+          ${defaultAvatars[ai.id].replace('40', '24').replace('40', '24')}
+        </div>
+        <span class="text-sm">${ai.name}</span>
+      </div>
+    `;
+    mentionList.appendChild(aiItem);
+  });
+  
+  return mentionList;
+}
+
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
   console.log('DOM完全加载');
@@ -97,6 +139,41 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
   
+  // 创建并添加@选择器
+  const mentionList = createMentionList();
+  messageInput.parentElement.appendChild(mentionList);
+  
+  // 监听输入框输入事件
+  messageInput.addEventListener('input', handleInput);
+  
+  // 监听@选择器点击事件
+  mentionList.addEventListener('click', (e) => {
+    const mentionItem = e.target.closest('.mention-item');
+    if (!mentionItem) return;
+    
+    const id = mentionItem.getAttribute('data-id');
+    const text = messageInput.value;
+    const cursorPos = messageInput.selectionStart;
+    const lastAtPos = text.lastIndexOf('@', cursorPos - 1);
+    
+    if (id === 'all') {
+      // @所有人
+      const newText = text.slice(0, lastAtPos) + '@所有人 ' + text.slice(cursorPos);
+      messageInput.value = newText;
+      mentionedAIs.clear(); // 清除之前的@
+    } else {
+      // @特定AI
+      const ai = aiTeamMembers.find(ai => ai.id === id);
+      const newText = text.slice(0, lastAtPos) + `@${ai.name} ` + text.slice(cursorPos);
+      messageInput.value = newText;
+      mentionedAIs.add(id);
+    }
+    
+    mentionList.classList.add('hidden');
+    showingMentionList = false;
+    messageInput.focus();
+  });
+  
   // 事件监听
   sendButton.addEventListener('click', () => {
     console.log('发送按钮被点击');
@@ -104,6 +181,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   
   messageInput.addEventListener('keydown', (e) => {
+    if (showingMentionList && e.key === 'Enter') {
+      e.preventDefault();
+      return;
+    }
+    
     // 按Enter发送消息，Shift+Enter换行
     if (e.key === 'Enter' && !e.shiftKey) {
       console.log('检测到Enter键');
@@ -133,7 +215,35 @@ function renderAiList() {
   });
 }
 
-// 发送消息
+// 处理输入事件
+function handleInput(e) {
+  const mentionList = document.getElementById('mention-list');
+  const text = e.target.value;
+  const cursorPos = e.target.selectionStart;
+  
+  // 检查是否刚输入了@
+  if (text[cursorPos - 1] === '@') {
+    const rect = getCaretCoordinates(e.target, cursorPos);
+    mentionList.style.left = `${rect.left}px`;
+    mentionList.style.bottom = `${rect.bottom}px`;
+    mentionList.classList.remove('hidden');
+    showingMentionList = true;
+  } else if (showingMentionList && text[cursorPos - 1] === ' ') {
+    mentionList.classList.add('hidden');
+    showingMentionList = false;
+  }
+}
+
+// 获取光标位置的辅助函数
+function getCaretCoordinates(element, position) {
+  const rect = element.getBoundingClientRect();
+  return {
+    left: rect.left,
+    bottom: window.innerHeight - rect.top + 10
+  };
+}
+
+// 修改发送消息函数
 function sendMessage() {
   console.log('sendMessage函数被调用');
   const messageInput = document.getElementById('message-input');
@@ -153,55 +263,23 @@ function sendMessage() {
   // 添加用户消息到聊天窗口
   addMessage('user', 'Boss', message);
   
-  // 清空输入框
+  // 清空输入框和@记录
   messageInput.value = '';
+  const targetAIs = mentionedAIs.size > 0 ? Array.from(mentionedAIs) : aiTeamMembers.map(ai => ai.id);
+  mentionedAIs.clear();
   
   // 获取AI回复
-  getAiResponses(message);
+  getAiResponses(message, targetAIs);
 }
 
-// 添加消息到聊天窗口
-function addMessage(type, sender, message, aiId = null) {
-  const messageElement = document.createElement('div');
-  messageElement.className = `chat-message ${type}-message mb-4`;
-  
-  let avatar, avatarStyle, nameDisplay;
-  
-  if (type === 'user') {
-    avatar = '<i class="fas fa-user"></i>';
-    avatarStyle = 'bg-primary';
-    nameDisplay = `<span class="font-medium text-xs text-primary">您</span>`;
-  } else {
-    const ai = aiTeamMembers.find(ai => ai.id === aiId);
-    avatar = defaultAvatars[aiId];
-    avatarStyle = 'overflow-hidden';
-    nameDisplay = `<span class="font-medium text-xs" style="color:${ai.color}">${ai.name}</span>`;
-  }
-  
-  messageElement.innerHTML = `
-    <div class="flex items-start">
-      <div class="h-8 w-8 rounded-full ${avatarStyle} flex items-center justify-center mr-2">
-        ${avatar}
-      </div>
-      <div class="chat-bubble ${type === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'} animate-slide-in">
-        <div class="flex items-center mb-1">
-          ${nameDisplay}
-          <span class="text-xs text-gray-400 ml-2">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-        </div>
-        <p>${message.replace(/\n/g, '<br>')}</p>
-      </div>
-    </div>
-  `;
-  
-  chatContainer.appendChild(messageElement);
-  chatContainer.scrollTop = chatContainer.scrollHeight;
-}
-
-// 获取AI回复
-async function getAiResponses(message) {
+// 修改获取AI回复函数
+async function getAiResponses(message, targetAIs) {
   try {
-    // 显示所有AI的"正在输入"状态
-    aiTeamMembers.forEach(ai => {
+    // 显示目标AI的"正在输入"状态
+    targetAIs.forEach(id => {
+      const ai = aiTeamMembers.find(ai => ai.id === id);
+      if (!ai) return;
+      
       const typingElement = document.createElement('div');
       typingElement.id = `typing-${ai.id}`;
       typingElement.className = 'chat-message ai-message mb-4';
@@ -225,10 +303,10 @@ async function getAiResponses(message) {
       }, Math.random() * 800);
     });
 
-    // 为每个AI生成随机响应时间，确保每个AI都有不同的响应时间
-    const responseDelays = aiTeamMembers.map(ai => {
+    // 为目标AI生成随机响应时间
+    const responseDelays = targetAIs.map(id => {
       return { 
-        id: ai.id, 
+        id, 
         delay: 1000 + Math.random() * 4000 // 1-5秒的随机延迟
       };
     });
@@ -247,7 +325,6 @@ async function getAiResponses(message) {
         addMessage('ai', ai.name, response, ai.id);
       } catch (error) {
         console.error(`获取${id}的回复出错:`, error);
-        // 显示错误消息
         addMessage('ai', ai.name, `抱歉，我暂时无法回应，请稍后再试。(错误: ${error.message})`, id);
       }
     }
@@ -348,4 +425,41 @@ async function callDeepSeekAPI(message, ai) {
     console.error(`DeepSeek API调用错误 (${ai.name}):`, error);
     throw error;
   }
+}
+
+// 添加消息到聊天窗口
+function addMessage(type, sender, message, aiId = null) {
+  const messageElement = document.createElement('div');
+  messageElement.className = `chat-message ${type}-message mb-4`;
+  
+  let avatar, avatarStyle, nameDisplay;
+  
+  if (type === 'user') {
+    avatar = '<i class="fas fa-user"></i>';
+    avatarStyle = 'bg-primary';
+    nameDisplay = `<span class="font-medium text-xs text-primary">您</span>`;
+  } else {
+    const ai = aiTeamMembers.find(ai => ai.id === aiId);
+    avatar = defaultAvatars[aiId];
+    avatarStyle = 'overflow-hidden';
+    nameDisplay = `<span class="font-medium text-xs" style="color:${ai.color}">${ai.name}</span>`;
+  }
+  
+  messageElement.innerHTML = `
+    <div class="flex items-start">
+      <div class="h-8 w-8 rounded-full ${avatarStyle} flex items-center justify-center mr-2">
+        ${avatar}
+      </div>
+      <div class="chat-bubble ${type === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'} animate-slide-in">
+        <div class="flex items-center mb-1">
+          ${nameDisplay}
+          <span class="text-xs text-gray-400 ml-2">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+        </div>
+        <p>${message.replace(/\n/g, '<br>')}</p>
+      </div>
+    </div>
+  `;
+  
+  chatContainer.appendChild(messageElement);
+  chatContainer.scrollTop = chatContainer.scrollHeight;
 } 
