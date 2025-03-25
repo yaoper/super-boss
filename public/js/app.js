@@ -120,11 +120,8 @@ function renderAiList() {
     aiElement.className = 'p-4 hover:bg-gray-50 cursor-pointer transition-colors duration-200';
     aiElement.innerHTML = `
       <div class="flex items-center">
-        <div class="h-10 w-10 rounded-full bg-white border border-gray-200 overflow-hidden">
-          <img src="public/images/avatars/${ai.avatar}" 
-               alt="${ai.name}" 
-               class="h-full w-full object-cover"
-               onerror="this.outerHTML='${defaultAvatars[ai.id]}'">
+        <div class="h-10 w-10 rounded-full overflow-hidden flex items-center justify-center">
+          ${defaultAvatars[ai.id]}
         </div>
         <div class="ml-3">
           <p class="text-sm font-medium">${ai.name}</p>
@@ -176,17 +173,14 @@ function addMessage(type, sender, message, aiId = null) {
     nameDisplay = `<span class="font-medium text-xs text-primary">您</span>`;
   } else {
     const ai = aiTeamMembers.find(ai => ai.id === aiId);
-    avatar = `<img src="public/images/avatars/${ai.avatar}" 
-              alt="${ai.name}" 
-              class="h-full w-full object-cover"
-              onerror="this.outerHTML='${defaultAvatars[aiId]}'">`;
-    avatarStyle = 'bg-white border border-gray-200 overflow-hidden';
+    avatar = defaultAvatars[aiId];
+    avatarStyle = 'overflow-hidden';
     nameDisplay = `<span class="font-medium text-xs" style="color:${ai.color}">${ai.name}</span>`;
   }
   
   messageElement.innerHTML = `
     <div class="flex items-start">
-      <div class="h-8 w-8 rounded-full ${avatarStyle} flex items-center justify-center text-white mr-2">
+      <div class="h-8 w-8 rounded-full ${avatarStyle} flex items-center justify-center mr-2">
         ${avatar}
       </div>
       <div class="chat-bubble ${type === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'} animate-slide-in">
@@ -206,15 +200,15 @@ function addMessage(type, sender, message, aiId = null) {
 // 获取AI回复
 async function getAiResponses(message) {
   try {
-    // 模拟AI处理中状态
+    // 显示所有AI的"正在输入"状态
     aiTeamMembers.forEach(ai => {
       const typingElement = document.createElement('div');
       typingElement.id = `typing-${ai.id}`;
       typingElement.className = 'chat-message ai-message mb-4';
       typingElement.innerHTML = `
         <div class="flex items-start">
-          <div class="h-8 w-8 rounded-full bg-white border border-gray-200 overflow-hidden flex items-center justify-center mr-2">
-            <img src="public/images/avatars/${ai.avatar}" alt="${ai.name}" class="h-full w-full object-cover" onerror="this.src='public/images/avatars/default.png'">
+          <div class="h-8 w-8 rounded-full overflow-hidden flex items-center justify-center mr-2">
+            ${defaultAvatars[ai.id]}
           </div>
           <div class="chat-bubble chat-bubble-ai animate-pulse">
             <div class="flex items-center mb-1">
@@ -225,17 +219,13 @@ async function getAiResponses(message) {
         </div>
       `;
       
-      // 添加延迟以展示"正在输入"的状态
       setTimeout(() => {
         chatContainer.appendChild(typingElement);
         chatContainer.scrollTop = chatContainer.scrollHeight;
       }, Math.random() * 800);
     });
 
-    // 在实际应用中，这里应该调用服务器API获取AI回复
-    // 现在我们模拟不同AI以不同速度回复
-
-    // 为每个AI生成随机回复时间，确保每个AI都有不同的响应时间
+    // 为每个AI生成随机响应时间，确保每个AI都有不同的响应时间
     const responseDelays = aiTeamMembers.map(ai => {
       return { 
         id: ai.id, 
@@ -243,91 +233,119 @@ async function getAiResponses(message) {
       };
     });
     
-    // 模拟AI响应
-    responseDelays.forEach(({ id, delay }) => {
-      setTimeout(() => {
+    // 调用DeepSeek API获取响应
+    for (const { id, delay } of responseDelays) {
+      try {
+        await new Promise(resolve => setTimeout(resolve, delay));
+        
         // 移除"正在输入"指示器
         const typingElement = document.getElementById(`typing-${id}`);
         if (typingElement) typingElement.remove();
         
-        // 添加AI回复
         const ai = aiTeamMembers.find(ai => ai.id === id);
-        const response = generateMockResponse(message, ai);
+        const response = await callDeepSeekAPI(message, ai);
         addMessage('ai', ai.name, response, ai.id);
-      }, delay);
-    });
+      } catch (error) {
+        console.error(`获取${id}的回复出错:`, error);
+        // 显示错误消息
+        addMessage('ai', ai.name, `抱歉，我暂时无法回应，请稍后再试。(错误: ${error.message})`, id);
+      }
+    }
   } catch (error) {
     console.error('获取AI回复出错:', error);
   }
 }
 
-// 生成模拟回复
-function generateMockResponse(message, ai) {
-  // 简单的模拟响应，实际应用中会调用DeepSeek V3 API
-  const commonResponses = [
-    `我来处理这个问题！"${message}" 的答案很简单，让我来解释一下...`,
-    `老板，我已经分析了您提到的 "${message}"，以下是我的建议...`,
-    `收到您的消息了！关于"${message}"，我有一些很棒的想法...`,
-    `我马上就能解决这个问题。"${message}"需要从以下几个方面考虑...`
-  ];
-  
-  const aiSpecificResponses = {
-    'douban': [
-      `豆包收到！"${message}" 这个问题很有趣，我的回答是...`,
-      `老板您好！豆包已经准备好解决 "${message}" 这个问题了~`
-    ],
-    'kimi': [
-      `Kimi已分析完成："${message}" 的最优解决方案是...`,
-      `高效解决问题是我的专长。对于 "${message}"，我建议...`
-    ],
-    'deepseek': [
-      `DeepSeek深度分析：关于 "${message}"，我发现了一些有趣的模式...`,
-      `从底层逻辑来看，"${message}" 这个问题可以这样解决...`
-    ],
-    'chatgpt': [
-      `我已全面考虑了 "${message}" 的各个方面，建议如下...`,
-      `ChatGPT为您提供全方位解答："${message}" 涉及到的要点有...`
-    ],
-    'grok': [
-      `有意思的问题！"${message}" 让我想到了一个笑话，不过言归正传...`,
-      `Grok为您效劳！即使是 "${message}" 这样的问题也难不倒我...`
-    ],
-    'wenxin': [
-      `文心一言精心组织答复：关于 "${message}"，我们可以从文化背景出发...`,
-      `以古鉴今，"${message}" 让我想到了一句古语...`
-    ]
-  };
-  
-  // 随机选择通用回复或特定AI回复
-  const useSpecific = Math.random() > 0.3;
-  let responses;
-  
-  if (useSpecific && aiSpecificResponses[ai.id] && aiSpecificResponses[ai.id].length > 0) {
-    responses = aiSpecificResponses[ai.id];
-  } else {
-    responses = commonResponses;
-  }
-  
-  // 随机添加一些情绪价值语句
-  const emotionalStatements = [
-    "老板英明！",
-    "您的想法总是那么有前瞻性！",
-    "能为您工作是我的荣幸！",
-    "这个问题提得太好了！",
-    "老板就是老板，一眼就看到了问题核心！"
-  ];
-  
-  let response = responses[Math.floor(Math.random() * responses.length)];
-  
-  // 30%的概率在回复的开头或结尾添加情绪价值
-  if (Math.random() < 0.3) {
-    const emotional = emotionalStatements[Math.floor(Math.random() * emotionalStatements.length)];
-    if (Math.random() < 0.5) {
-      response = emotional + " " + response;
-    } else {
-      response = response + " " + emotional;
+// 调用DeepSeek API
+async function callDeepSeekAPI(message, ai) {
+  try {
+    // 构建角色提示词
+    const rolePrompts = {
+      'douban': `你现在是一个名叫"豆包"的AI助手，性格活泼可爱，说话风格轻松友好，经常使用emoji表情。
+                你需要以下面的风格回答问题：
+                1. 用活泼、亲切的语气
+                2. 适当使用一些网络流行语
+                3. 在回答中加入emoji表情
+                4. 称呼提问者为"老板"，并适当表达对老板的敬意
+                5. 保持专业性的同时，让回答更有趣味性`,
+      
+      'kimi': `你现在是一个名叫"Kimi"的AI助手，性格严谨专业，说话简洁直接。
+               你需要以下面的风格回答问题：
+               1. 使用严谨、专业的语言
+               2. 回答要简洁明了，直击要点
+               3. 在适当时候引用数据或研究支持观点
+               4. 保持对"老板"的尊重，但语气要专业化
+               5. 强调效率和可执行性`,
+      
+      'deepseek': `你现在是"DeepSeek"AI助手，擅长深度思考和分析。
+                   你需要以下面的风格回答问题：
+                   1. 使用学术性的语言风格
+                   2. 深入分析问题的各个层面
+                   3. 提供系统性的解决方案
+                   4. 在回答中展现深度思考
+                   5. 对"老板"保持恭敬但不失专业性`,
+      
+      'chatgpt': `你现在是"ChatGPT"AI助手，全能且平衡的问题解决者。
+                  你需要以下面的风格回答问题：
+                  1. 提供全面且平衡的答案
+                  2. 考虑多个角度
+                  3. 语言要清晰易懂
+                  4. 适当举例说明
+                  5. 对"老板"保持专业的服务态度`,
+      
+      'grok': `你现在是"Grok"AI助手，风趣幽默但不失专业。
+              你需要以下面的风格回答问题：
+              1. 在回答中适当加入幽默元素
+              2. 使用轻松诙谐的语气
+              3. 可以讲一个相关的小笑话
+              4. 在诙谐中不失专业性
+              5. 对"老板"既要尊重又要活跃气氛`,
+      
+      'wenxin': `你现在是"文心一言"AI助手，擅长优美的文字表达。
+                你需要以下面的风格回答问题：
+                1. 使用优美流畅的语言
+                2. 适当引用古诗词或名言
+                3. 体现中国传统文化特色
+                4. 保持文采斐然的特点
+                5. 对"老板"既要尊重又要体现文化底蕴`
+    };
+
+    console.log(`正在调用DeepSeek API (${ai.name})...`);
+    
+    // 调用DeepSeek API
+    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer sk-be60e0bc708b43b58bd86df5aa9170f8'
+      },
+      body: JSON.stringify({
+        model: "deepseek-chat",
+        messages: [
+          {
+            role: "system",
+            content: rolePrompts[ai.id]
+          },
+          {
+            role: "user",
+            content: message
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 1000
+      })
+    });
+
+    const data = await response.json();
+    console.log(`DeepSeek API响应 (${ai.name}):`, data);
+    
+    if (!response.ok) {
+      throw new Error(`API调用失败: ${data.error?.message || '未知错误'}`);
     }
+
+    return data.choices[0].message.content;
+  } catch (error) {
+    console.error(`DeepSeek API调用错误 (${ai.name}):`, error);
+    throw error;
   }
-  
-  return response;
 } 
