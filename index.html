@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI团队聊天 | 科技感十足的团队协作</title>
+  <link rel="stylesheet" href="public/css/main.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+  <div class="container mx-auto h-screen flex flex-col p-4 max-w-6xl">
+    <!-- 头部 -->
+    <header class="flex items-center justify-between p-4 bg-white rounded-t-xl shadow-sm border-b border-gray-200">
+      <div class="flex items-center">
+        <div class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
+          AI 团队聊天室
+        </div>
+        <div class="ml-4 px-3 py-1 rounded-full bg-primary text-white text-xs font-medium">
+          <span id="online-count">6</span> 位AI在线
+        </div>
+      </div>
+      <div class="flex items-center space-x-4">
+        <button id="settings-btn" class="text-gray-500 hover:text-primary">
+          <i class="fas fa-cog"></i>
+        </button>
+        <button id="theme-toggle" class="text-gray-500 hover:text-primary">
+          <i class="fas fa-moon"></i>
+        </button>
+      </div>
+    </header>
+    
+    <!-- 聊天区域 -->
+    <div class="flex-1 flex overflow-hidden">
+      <!-- 侧边栏：AI员工列表 -->
+      <div class="w-64 bg-white border-r border-gray-200 shadow-sm hidden md:block">
+        <div class="p-4 border-b border-gray-200">
+          <h2 class="font-medium text-dark">AI团队成员</h2>
+        </div>
+        <div class="overflow-y-auto h-[calc(100%-4rem)]">
+          <div class="p-4 hover:bg-gray-50 cursor-pointer">
+            <div class="flex items-center">
+              <div class="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-white">
+                <i class="fas fa-user"></i>
+              </div>
+              <div class="ml-3">
+                <p class="text-sm font-medium">老板</p>
+                <p class="text-xs text-gray-500">您</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- AI员工列表 -->
+          <div id="ai-list">
+            <!-- 将由JavaScript动态填充 -->
+          </div>
+        </div>
+      </div>
+      
+      <!-- 主聊天区域 -->
+      <div class="flex-1 flex flex-col bg-white shadow-sm">
+        <!-- 聊天记录 -->
+        <div id="chat-container" class="flex-1 p-4 overflow-y-auto">
+          <!-- 聊天消息区域，将通过JavaScript动态添加聊天气泡 -->
+          <div class="text-center text-sm text-gray-500 my-4">今天</div>
+          
+          <!-- 欢迎消息 -->
+          <div class="chat-message ai-message mb-4">
+            <div class="flex items-start">
+              <div class="h-8 w-8 rounded-full bg-primary-light flex items-center justify-center text-white mr-2">
+                <i class="fas fa-robot"></i>
+              </div>
+              <div class="chat-bubble chat-bubble-ai">
+                <div class="flex items-center mb-1">
+                  <span class="font-medium text-xs text-primary">系统消息</span>
+                </div>
+                <p>欢迎来到AI团队聊天室！您可以在这里与多位AI助手交流，他们会积极响应您的需求。试着发送一条消息，看看谁会最先回应您！</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 输入区域 -->
+        <div class="border-t border-gray-200 p-4 bg-gray-50">
+          <div class="flex items-end">
+            <textarea id="message-input" class="flex-1 border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none" 
+              placeholder="输入消息，与您的AI团队交流..." rows="2"></textarea>
+            <button id="send-button" class="ml-2 btn flex items-center justify-center h-12 w-12">
+              <i class="fas fa-paper-plane"></i>
+            </button>
+          </div>
+          <div class="mt-2 text-xs text-gray-500">
+            按Enter发送，按Shift+Enter换行
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="public/js/app.js"></script>
+</body>
+</html> 
