@@ -50,16 +50,63 @@ const messageInput = document.getElementById('message-input');
 const sendButton = document.getElementById('send-button');
 const aiListContainer = document.getElementById('ai-list');
 
+// 添加默认头像SVG数据
+const defaultAvatars = {
+  'douban': `<svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+    <rect width="40" height="40" fill="#4CAF50"/>
+    <text x="20" y="25" font-size="16" fill="white" text-anchor="middle" font-family="Arial">豆</text>
+  </svg>`,
+  'kimi': `<svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+    <rect width="40" height="40" fill="#2196F3"/>
+    <text x="20" y="25" font-size="16" fill="white" text-anchor="middle" font-family="Arial">K</text>
+  </svg>`,
+  'deepseek': `<svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+    <rect width="40" height="40" fill="#9C27B0"/>
+    <text x="20" y="25" font-size="16" fill="white" text-anchor="middle" font-family="Arial">D</text>
+  </svg>`,
+  'chatgpt': `<svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+    <rect width="40" height="40" fill="#00BCD4"/>
+    <text x="20" y="25" font-size="16" fill="white" text-anchor="middle" font-family="Arial">G</text>
+  </svg>`,
+  'grok': `<svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+    <rect width="40" height="40" fill="#FF5722"/>
+    <text x="20" y="25" font-size="16" fill="white" text-anchor="middle" font-family="Arial">G</text>
+  </svg>`,
+  'wenxin': `<svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+    <rect width="40" height="40" fill="#FF9800"/>
+    <text x="20" y="25" font-size="16" fill="white" text-anchor="middle" font-family="Arial">文</text>
+  </svg>`
+};
+
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOM完全加载');
+  
   // 渲染AI员工列表
   renderAiList();
   
+  // 获取DOM元素并确保它们存在
+  const messageInput = document.getElementById('message-input');
+  const sendButton = document.getElementById('send-button');
+  
+  console.log('消息输入框:', messageInput);
+  console.log('发送按钮:', sendButton);
+  
+  if (!messageInput || !sendButton) {
+    console.error('无法获取必要的DOM元素!');
+    return;
+  }
+  
   // 事件监听
-  sendButton.addEventListener('click', sendMessage);
+  sendButton.addEventListener('click', () => {
+    console.log('发送按钮被点击');
+    sendMessage();
+  });
+  
   messageInput.addEventListener('keydown', (e) => {
     // 按Enter发送消息，Shift+Enter换行
     if (e.key === 'Enter' && !e.shiftKey) {
+      console.log('检测到Enter键');
       e.preventDefault();
       sendMessage();
     }
@@ -74,7 +121,10 @@ function renderAiList() {
     aiElement.innerHTML = `
       <div class="flex items-center">
         <div class="h-10 w-10 rounded-full bg-white border border-gray-200 overflow-hidden">
-          <img src="public/images/avatars/${ai.avatar}" alt="${ai.name}" class="h-full w-full object-cover" onerror="this.src='public/images/avatars/default.png'">
+          <img src="public/images/avatars/${ai.avatar}" 
+               alt="${ai.name}" 
+               class="h-full w-full object-cover"
+               onerror="this.outerHTML='${defaultAvatars[ai.id]}'">
         </div>
         <div class="ml-3">
           <p class="text-sm font-medium">${ai.name}</p>
@@ -88,8 +138,20 @@ function renderAiList() {
 
 // 发送消息
 function sendMessage() {
+  console.log('sendMessage函数被调用');
+  const messageInput = document.getElementById('message-input');
+  if (!messageInput) {
+    console.error('无法获取消息输入框元素!');
+    return;
+  }
+  
   const message = messageInput.value.trim();
-  if (!message) return;
+  console.log('消息内容:', message);
+  
+  if (!message) {
+    console.log('消息为空，不发送');
+    return;
+  }
   
   // 添加用户消息到聊天窗口
   addMessage('user', 'Boss', message);
@@ -114,7 +176,10 @@ function addMessage(type, sender, message, aiId = null) {
     nameDisplay = `<span class="font-medium text-xs text-primary">您</span>`;
   } else {
     const ai = aiTeamMembers.find(ai => ai.id === aiId);
-    avatar = `<img src="public/images/avatars/${ai.avatar}" alt="${ai.name}" class="h-full w-full object-cover" onerror="this.src='public/images/avatars/default.png'">`;
+    avatar = `<img src="public/images/avatars/${ai.avatar}" 
+              alt="${ai.name}" 
+              class="h-full w-full object-cover"
+              onerror="this.outerHTML='${defaultAvatars[aiId]}'">`;
     avatarStyle = 'bg-white border border-gray-200 overflow-hidden';
     nameDisplay = `<span class="font-medium text-xs" style="color:${ai.color}">${ai.name}</span>`;
   }
@@ -200,10 +265,10 @@ async function getAiResponses(message) {
 function generateMockResponse(message, ai) {
   // 简单的模拟响应，实际应用中会调用DeepSeek V3 API
   const commonResponses = [
-    `我来处理这个问题！${message} 的答案很简单，让我来解释一下...",
-    "老板，我已经分析了您提到的 "${message}"，以下是我的建议...",
-    "收到您的消息了！关于"${message}"，我有一些很棒的想法...",
-    "我马上就能解决这个问题。"${message}"需要从以下几个方面考虑..."
+    `我来处理这个问题！"${message}" 的答案很简单，让我来解释一下...`,
+    `老板，我已经分析了您提到的 "${message}"，以下是我的建议...`,
+    `收到您的消息了！关于"${message}"，我有一些很棒的想法...`,
+    `我马上就能解决这个问题。"${message}"需要从以下几个方面考虑...`
   ];
   
   const aiSpecificResponses = {
