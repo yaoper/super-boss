@@ -37,7 +37,7 @@ const aiTeamMembers = [
   },
   { 
     id: 'wenxin', 
-    name: '文心一言', 
+    name: '文小言', 
     avatar: 'wenxin.png', 
     color: '#FF9800',
     description: '文采斐然的AI助手'
@@ -81,38 +81,35 @@ const defaultAvatars = {
 // 添加@选择器相关变量
 let mentionedAIs = new Set(); // 存储被@的AI
 let showingMentionList = false; // 是否显示@列表
+let currentMentionIndex = 0;
 
 // 添加@选择器的HTML
 function createMentionList() {
   const mentionList = document.createElement('div');
   mentionList.id = 'mention-list';
-  mentionList.className = 'absolute bottom-full mb-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden hidden';
+  mentionList.className = 'absolute bottom-full mb-2 w-52 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden hidden max-h-[280px] overflow-y-auto';
   
   // 添加@所有人选项
   mentionList.innerHTML = `
-    <div class="mention-item p-2 hover:bg-gray-50 cursor-pointer" data-id="all">
-      <div class="flex items-center">
-        <div class="h-6 w-6 rounded-full bg-primary flex items-center justify-center text-white mr-2">
-          <i class="fas fa-users text-sm"></i>
-        </div>
-        <span class="text-sm">所有人</span>
+    <div class="mention-item py-2.5 px-3 hover:bg-gray-50 cursor-pointer transition-colors duration-150 flex items-center" data-id="all">
+      <div class="h-6 w-6 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 mr-2">
+        <i class="fas fa-users text-sm"></i>
       </div>
+      <span class="text-sm text-gray-700">所有人</span>
     </div>
-    <div class="border-t border-gray-200"></div>
+    <div class="border-t border-gray-100 my-1"></div>
   `;
   
   // 添加各AI选项
-  aiTeamMembers.forEach(ai => {
+  aiTeamMembers.forEach((ai, index) => {
     const aiItem = document.createElement('div');
-    aiItem.className = 'mention-item p-2 hover:bg-gray-50 cursor-pointer';
+    aiItem.className = 'mention-item py-2.5 px-3 hover:bg-gray-50 cursor-pointer transition-colors duration-150 flex items-center';
     aiItem.setAttribute('data-id', ai.id);
     aiItem.innerHTML = `
-      <div class="flex items-center">
-        <div class="h-6 w-6 rounded-full overflow-hidden mr-2">
-          ${defaultAvatars[ai.id].replace('40', '24').replace('40', '24')}
-        </div>
-        <span class="text-sm">${ai.name}</span>
+      <div class="h-6 w-6 rounded-full overflow-hidden mr-2">
+        ${defaultAvatars[ai.id].replace('40', '24').replace('40', '24')}
       </div>
+      <span class="text-sm text-gray-700">${ai.name}</span>
     `;
     mentionList.appendChild(aiItem);
   });
@@ -150,28 +147,40 @@ document.addEventListener('DOMContentLoaded', () => {
   mentionList.addEventListener('click', (e) => {
     const mentionItem = e.target.closest('.mention-item');
     if (!mentionItem) return;
+    handleMentionSelect(mentionItem);
+  });
+  
+  // 添加键盘事件处理
+  document.addEventListener('keydown', (e) => {
+    if (!showingMentionList) return;
     
-    const id = mentionItem.getAttribute('data-id');
-    const text = messageInput.value;
-    const cursorPos = messageInput.selectionStart;
-    const lastAtPos = text.lastIndexOf('@', cursorPos - 1);
+    const mentionList = document.getElementById('mention-list');
+    const items = mentionList.querySelectorAll('.mention-item');
     
-    if (id === 'all') {
-      // @所有人
-      const newText = text.slice(0, lastAtPos) + '@所有人 ' + text.slice(cursorPos);
-      messageInput.value = newText;
-      mentionedAIs.clear(); // 清除之前的@
-    } else {
-      // @特定AI
-      const ai = aiTeamMembers.find(ai => ai.id === id);
-      const newText = text.slice(0, lastAtPos) + `@${ai.name} ` + text.slice(cursorPos);
-      messageInput.value = newText;
-      mentionedAIs.add(id);
+    switch (e.key) {
+      case 'ArrowUp':
+        e.preventDefault();
+        currentMentionIndex = (currentMentionIndex - 1 + items.length) % items.length;
+        updateMentionSelection();
+        break;
+      case 'ArrowDown':
+        e.preventDefault();
+        currentMentionIndex = (currentMentionIndex + 1) % items.length;
+        updateMentionSelection();
+        break;
+      case 'Enter':
+        if (showingMentionList) {
+          e.preventDefault();
+          const selectedItem = items[currentMentionIndex];
+          handleMentionSelect(selectedItem);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        mentionList.classList.add('hidden');
+        showingMentionList = false;
+        break;
     }
-    
-    mentionList.classList.add('hidden');
-    showingMentionList = false;
-    messageInput.focus();
   });
   
   // 事件监听
@@ -223,24 +232,66 @@ function handleInput(e) {
   
   // 检查是否刚输入了@
   if (text[cursorPos - 1] === '@') {
-    const rect = getCaretCoordinates(e.target, cursorPos);
+    const rect = e.target.getBoundingClientRect();
+    const lineHeight = parseInt(window.getComputedStyle(e.target).lineHeight);
+    const lines = text.substr(0, cursorPos).split('\n');
+    const currentLine = lines.length;
+    
     mentionList.style.left = `${rect.left}px`;
-    mentionList.style.bottom = `${rect.bottom}px`;
+    mentionList.style.bottom = `${window.innerHeight - rect.top + (lineHeight * (lines.length - 1))}px`;
     mentionList.classList.remove('hidden');
     showingMentionList = true;
+    currentMentionIndex = 0;
+    updateMentionSelection();
   } else if (showingMentionList && text[cursorPos - 1] === ' ') {
     mentionList.classList.add('hidden');
     showingMentionList = false;
   }
 }
 
-// 获取光标位置的辅助函数
-function getCaretCoordinates(element, position) {
-  const rect = element.getBoundingClientRect();
-  return {
-    left: rect.left,
-    bottom: window.innerHeight - rect.top + 10
-  };
+// 更新选中状态的函数
+function updateMentionSelection() {
+  const mentionList = document.getElementById('mention-list');
+  const items = mentionList.querySelectorAll('.mention-item');
+  
+  items.forEach((item, index) => {
+    if (index === currentMentionIndex) {
+      item.classList.add('bg-gray-50');
+    } else {
+      item.classList.remove('bg-gray-50');
+    }
+  });
+  
+  // 确保选中项可见
+  items[currentMentionIndex].scrollIntoView({
+    block: 'nearest',
+    behavior: 'smooth'
+  });
+}
+
+// 处理选择的函数
+function handleMentionSelect(selectedItem) {
+  const messageInput = document.getElementById('message-input');
+  const id = selectedItem.getAttribute('data-id');
+  const text = messageInput.value;
+  const cursorPos = messageInput.selectionStart;
+  const lastAtPos = text.lastIndexOf('@', cursorPos - 1);
+  
+  if (id === 'all') {
+    const newText = text.slice(0, lastAtPos) + '@所有人 ' + text.slice(cursorPos);
+    messageInput.value = newText;
+    mentionedAIs.clear();
+  } else {
+    const ai = aiTeamMembers.find(ai => ai.id === id);
+    const newText = text.slice(0, lastAtPos) + `@${ai.name} ` + text.slice(cursorPos);
+    messageInput.value = newText;
+    mentionedAIs.add(id);
+  }
+  
+  const mentionList = document.getElementById('mention-list');
+  mentionList.classList.add('hidden');
+  showingMentionList = false;
+  messageInput.focus();
 }
 
 // 修改发送消息函数
