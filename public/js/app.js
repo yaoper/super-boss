@@ -500,7 +500,7 @@ function addMessage(type, sender, message, aiId = null) {
   if (type === 'user') {
     avatar = '<i class="fas fa-user"></i>';
     avatarStyle = 'bg-primary';
-    nameDisplay = `<span class="font-medium text-xs text-primary">您</span>`;
+    nameDisplay = `<span class="font-medium text-xs text-white">您</span>`;
   } else {
     const ai = aiTeamMembers.find(ai => ai.id === aiId);
     avatar = defaultAvatars[aiId];
